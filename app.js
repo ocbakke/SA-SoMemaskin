@@ -1051,12 +1051,16 @@ function textSnapTargets(text) {
     xTargets.push(
       { edge: "left", target: other.x, x: other.x, guide: other.x },
       { edge: "center", target: otherCenterX, x: otherCenterX - text.w / 2, guide: otherCenterX },
-      { edge: "right", target: other.x + other.w, x: other.x + other.w - text.w, guide: other.x + other.w }
+      { edge: "right", target: other.x + other.w, x: other.x + other.w - text.w, guide: other.x + other.w },
+      { edge: "left", target: other.x + other.w, x: other.x + other.w, guide: other.x + other.w },
+      { edge: "right", target: other.x, x: other.x - text.w, guide: other.x }
     );
     yTargets.push(
       { edge: "top", target: other.y, y: other.y, guide: other.y },
       { edge: "middle", target: otherMiddleY, y: otherMiddleY - text.h / 2, guide: otherMiddleY },
       { edge: "bottom", target: other.y + other.h, y: other.y + other.h - text.h, guide: other.y + other.h },
+      { edge: "top", target: other.y + other.h, y: other.y + other.h, guide: other.y + other.h },
+      { edge: "bottom", target: other.y, y: other.y - text.h, guide: other.y },
       { edge: "top", target: other.y + other.h + SNAP_GAP, y: other.y + other.h + SNAP_GAP, guide: other.y + other.h + SNAP_GAP },
       { edge: "bottom", target: other.y - SNAP_GAP, y: other.y - SNAP_GAP - text.h, guide: other.y - SNAP_GAP }
     );
