@@ -218,7 +218,10 @@ function addTextNearCurrent() {
     padding: Math.round(clamp(font * 0.36, 14, 34)),
     w: width,
     x: Math.round(clamp(center - width / 2, safeRect.x, safeRect.x + safeRect.w - width)),
-    y
+    y,
+    bg: source?.bg || "#ef8a17",
+    color: source?.color || "#111827",
+    boxOpacity: source?.boxOpacity ?? 1
   });
 
   const item = selectedText();
