@@ -24,6 +24,8 @@ const LOGOS = {
 };
 
 const PALETTE = ["#e40200", "#0064dc", "#ef8a17", "#111827", "#ffffff", "#00584f", "#f7f8fb"];
+const SNAP_THRESHOLD = 24;
+const SNAP_GAP = 24;
 
 const canvas = document.querySelector("#postCanvas");
 const ctx = canvas.getContext("2d");
@@ -56,7 +58,8 @@ const state = {
   selectedSlotId: null,
   texts: [],
   selectedTextId: null,
-  logo: { visible: true, variant: "color", x: 58, y: 58, w: 190 }
+  logo: { visible: true, variant: "color", x: 58, y: 58, w: 190 },
+  snapGuides: []
 };
 
 function uid(prefix) {
@@ -350,7 +353,10 @@ function draw(includeSelection = true) {
   state.slots.forEach(drawSlot);
   state.texts.forEach(drawTextItem);
   drawLogo();
-  if (includeSelection) drawSelection();
+  if (includeSelection) {
+    drawSnapGuides();
+    drawSelection();
+  }
 }
 
 function drawSlot(slot) {
@@ -513,6 +519,26 @@ function drawLogo() {
   ctx.drawImage(image, state.logo.x, state.logo.y, state.logo.w, state.logo.w * aspect);
 }
 
+function drawSnapGuides() {
+  if (state.snapGuides.length === 0) return;
+  ctx.save();
+  ctx.setLineDash([14, 10]);
+  ctx.strokeStyle = "#0064dc";
+  ctx.lineWidth = Math.max(2, state.format.width * 0.0022);
+  state.snapGuides.forEach((guide) => {
+    ctx.beginPath();
+    if (guide.axis === "x") {
+      ctx.moveTo(guide.at, 0);
+      ctx.lineTo(guide.at, state.format.height);
+    } else {
+      ctx.moveTo(0, guide.at);
+      ctx.lineTo(state.format.width, guide.at);
+    }
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
 function drawSelection() {
   const text = selectedText();
   if (text) {
@@ -570,8 +596,84 @@ function hitSlot(point) {
   }) || null;
 }
 
+function textSnapTargets(text) {
+  const margin = Math.round(Math.min(state.format.width, state.format.height) * 0.055);
+  const xTargets = [
+    { edge: "left", target: margin, x: margin, guide: margin },
+    { edge: "center", target: state.format.width / 2, x: state.format.width / 2 - text.w / 2, guide: state.format.width / 2 },
+    { edge: "right", target: state.format.width - margin, x: state.format.width - margin - text.w, guide: state.format.width - margin }
+  ];
+  const yTargets = [
+    { edge: "top", target: margin, y: margin, guide: margin },
+    { edge: "middle", target: state.format.height / 2, y: state.format.height / 2 - text.h / 2, guide: state.format.height / 2 },
+    { edge: "bottom", target: state.format.height - margin, y: state.format.height - margin - text.h, guide: state.format.height - margin }
+  ];
+
+  state.texts.forEach((other) => {
+    if (other.id === text.id) return;
+    const otherCenterX = other.x + other.w / 2;
+    const otherMiddleY = other.y + other.h / 2;
+    xTargets.push(
+      { edge: "left", target: other.x, x: other.x, guide: other.x },
+      { edge: "center", target: otherCenterX, x: otherCenterX - text.w / 2, guide: otherCenterX },
+      { edge: "right", target: other.x + other.w, x: other.x + other.w - text.w, guide: other.x + other.w }
+    );
+    yTargets.push(
+      { edge: "top", target: other.y, y: other.y, guide: other.y },
+      { edge: "middle", target: otherMiddleY, y: otherMiddleY - text.h / 2, guide: otherMiddleY },
+      { edge: "bottom", target: other.y + other.h, y: other.y + other.h - text.h, guide: other.y + other.h },
+      { edge: "top", target: other.y + other.h + SNAP_GAP, y: other.y + other.h + SNAP_GAP, guide: other.y + other.h + SNAP_GAP },
+      { edge: "bottom", target: other.y - SNAP_GAP, y: other.y - SNAP_GAP - text.h, guide: other.y - SNAP_GAP }
+    );
+  });
+
+  return { xTargets, yTargets };
+}
+
+function closestSnap(candidates, valueForCandidate) {
+  let best = null;
+  candidates.forEach((candidate) => {
+    const distance = Math.abs(valueForCandidate(candidate) - candidate.target);
+    if (distance <= SNAP_THRESHOLD && (!best || distance < best.distance)) {
+      best = { candidate, distance };
+    }
+  });
+  return best?.candidate || null;
+}
+
+function snapTextPosition(text, x, y) {
+  text.h = measureTextItem(text).height;
+  const { xTargets, yTargets } = textSnapTargets(text);
+  const xEdges = {
+    left: x,
+    center: x + text.w / 2,
+    right: x + text.w
+  };
+  const yEdges = {
+    top: y,
+    middle: y + text.h / 2,
+    bottom: y + text.h
+  };
+
+  const snappedX = closestSnap(xTargets, (candidate) => xEdges[candidate.edge]);
+  const snappedY = closestSnap(yTargets, (candidate) => yEdges[candidate.edge]);
+  const guides = [];
+
+  if (snappedX) {
+    x = snappedX.x;
+    guides.push({ axis: "x", at: snappedX.guide });
+  }
+  if (snappedY) {
+    y = snappedY.y;
+    guides.push({ axis: "y", at: snappedY.guide });
+  }
+
+  return { x: Math.round(x), y: Math.round(y), guides };
+}
+
 function pointerDown(event) {
   const point = canvasPoint(event);
+  state.snapGuides = [];
   const text = hitText(point);
   if (text) {
     state.selectedTextId = text.id;
@@ -612,12 +714,17 @@ function pointerMove(event) {
   if (drag.type === "text") {
     const text = state.texts.find((item) => item.id === drag.id);
     if (text) {
-      text.x = Math.round(clamp(drag.x + dx, -text.w * 0.8, state.format.width - text.w * 0.2));
-      text.y = Math.round(clamp(drag.y + dy, -text.h * 0.4, state.format.height - text.h * 0.2));
+      const rawX = clamp(drag.x + dx, -text.w * 0.8, state.format.width - text.w * 0.2);
+      const rawY = clamp(drag.y + dy, -text.h * 0.4, state.format.height - text.h * 0.2);
+      const snapped = snapTextPosition(text, rawX, rawY);
+      text.x = snapped.x;
+      text.y = snapped.y;
+      state.snapGuides = snapped.guides;
     }
   }
 
   if (drag.type === "slot") {
+    state.snapGuides = [];
     const slot = state.slots.find((item) => item.id === drag.id);
     if (slot) {
       slot.offsetX = Math.round(drag.x + dx);
@@ -626,6 +733,7 @@ function pointerMove(event) {
   }
 
   if (drag.type === "logo") {
+    state.snapGuides = [];
     state.logo.x = Math.round(clamp(drag.x + dx, -state.logo.w * 0.45, state.format.width - state.logo.w * 0.2));
     state.logo.y = Math.round(clamp(drag.y + dy, -state.logo.w * 0.25, state.format.height - state.logo.w * 0.1));
   }
@@ -822,6 +930,10 @@ document.querySelector("#deleteTextBtn").addEventListener("click", () => {
 canvas.addEventListener("pointerdown", pointerDown);
 canvas.addEventListener("pointermove", pointerMove);
 window.addEventListener("pointerup", () => {
+  if (drag?.type === "text") {
+    state.snapGuides = [];
+    draw();
+  }
   drag = null;
 });
 window.addEventListener("resize", resizeCanvasPreview);
