@@ -1,7 +1,7 @@
 const FORMATS = [
   { id: "ig-square", name: "Instagram", detail: "Kvadrat", width: 1080, height: 1080, safeZone: "feed" },
   { id: "ig-portrait", name: "Instagram", detail: "Portrett", width: 1080, height: 1350, safeZone: "feed" },
-  { id: "story", name: "Story / Snap", detail: "9:16", width: 1080, height: 1920, safeZone: "universal" },
+  { id: "story", name: "Story / Snap", detail: "9:16", width: 1080, height: 1920, safeZone: "storysnap" },
   { id: "facebook", name: "Facebook", detail: "Lenke", width: 1200, height: 630, safeZone: "feed" },
   { id: "landscape", name: "Facebook", detail: "Video/post", width: 1920, height: 1080, safeZone: "feed" },
   { id: "custom", name: "Egendefinert", detail: "Velg mål", width: 1080, height: 1080 }
@@ -28,6 +28,7 @@ const SNAP_THRESHOLD = 24;
 const SNAP_GAP = 24;
 const SAFE_ZONE_PRESETS = {
   universal: { label: "9:16", margins: { top: 270, right: 170, bottom: 670, left: 70 } },
+  storysnap: { label: "Story/Snap", margins: { top: 250, right: 60, bottom: 370, left: 60 } },
   tiktok: { label: "TikTok", margins: { top: 140, right: 170, bottom: 480, left: 60 } },
   reels: { label: "Reels", margins: { top: 270, right: 70, bottom: 670, left: 70 } },
   story: { label: "Story", margins: { top: 250, right: 60, bottom: 340, left: 60 } },
@@ -450,7 +451,7 @@ function isVerticalPlacement() {
 }
 
 function autoSafeZonePreset() {
-  return isVerticalPlacement() ? "universal" : "feed";
+  return isVerticalPlacement() ? "storysnap" : "feed";
 }
 
 function safeZoneMargins() {
@@ -532,11 +533,21 @@ function drawSafeZoneOverlay() {
   ctx.lineWidth = Math.max(2, state.format.width * 0.0022);
   ctx.setLineDash([16, 10]);
   ctx.strokeRect(safeRect.x, safeRect.y, safeRect.w, safeRect.h);
-  ctx.fillStyle = "rgba(0, 100, 220, 0.92)";
-  ctx.font = `900 ${Math.max(18, state.format.width * 0.018)}px Arial, sans-serif`;
+
+  const label = `TRYGG SONE · ${safeRect.label}`;
+  const labelSize = Math.round(Math.max(15, state.format.width * 0.014));
+  const labelX = safeRect.x + 18;
+  const labelY = safeRect.y > labelSize + 28 ? safeRect.y - labelSize - 14 : safeRect.y + 18;
+  ctx.setLineDash([]);
+  ctx.font = `900 ${labelSize}px Arial, sans-serif`;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  ctx.fillText(`TRYGG SONE · ${safeRect.label}`, safeRect.x + 18, safeRect.y + 18);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.82)";
+  const labelWidth = ctx.measureText(label).width;
+  roundRect(ctx, labelX - 8, labelY - 5, labelWidth + 16, labelSize + 12, Math.max(6, labelSize * 0.25));
+  ctx.fill();
+  ctx.fillStyle = "rgba(0, 100, 220, 0.94)";
+  ctx.fillText(label, labelX, labelY);
   ctx.restore();
 }
 
