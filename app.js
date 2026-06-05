@@ -1,9 +1,9 @@
 const FORMATS = [
-  { id: "ig-square", name: "Instagram", detail: "Kvadrat", width: 1080, height: 1080 },
-  { id: "ig-portrait", name: "Instagram", detail: "Portrett", width: 1080, height: 1350 },
-  { id: "story", name: "Story / Snap", detail: "9:16", width: 1080, height: 1920 },
-  { id: "facebook", name: "Facebook", detail: "Lenke", width: 1200, height: 630 },
-  { id: "landscape", name: "Facebook", detail: "Video/post", width: 1920, height: 1080 },
+  { id: "ig-square", name: "Instagram", detail: "Kvadrat", width: 1080, height: 1080, safeZone: "feed" },
+  { id: "ig-portrait", name: "Instagram", detail: "Portrett", width: 1080, height: 1350, safeZone: "feed" },
+  { id: "story", name: "Story / Snap", detail: "9:16", width: 1080, height: 1920, safeZone: "universal" },
+  { id: "facebook", name: "Facebook", detail: "Lenke", width: 1200, height: 630, safeZone: "feed" },
+  { id: "landscape", name: "Facebook", detail: "Video/post", width: 1920, height: 1080, safeZone: "feed" },
   { id: "custom", name: "Egendefinert", detail: "Velg mål", width: 1080, height: 1080 }
 ];
 
@@ -54,7 +54,6 @@ const boxColor = document.querySelector("#boxColor");
 const textColor = document.querySelector("#textColor");
 const logoVisible = document.querySelector("#logoVisible");
 const logoSize = document.querySelector("#logoSize");
-const safeZoneVisible = document.querySelector("#safeZoneVisible");
 
 const logoImages = {};
 let drag = null;
@@ -66,8 +65,8 @@ const state = {
   selectedSlotId: null,
   texts: [],
   selectedTextId: null,
-  logo: { visible: true, variant: "color", x: 58, y: 58, w: 190 },
-  safeZone: { visible: true, preset: "auto" },
+  logo: { visible: true, variant: "color", position: "tl", x: 58, y: 58, w: 190 },
+  safeZone: { visible: true, preset: "feed" },
   snapGuides: []
 };
 
@@ -77,6 +76,14 @@ function uid(prefix) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }
 
 function createSlot(rect, previous) {
@@ -163,12 +170,15 @@ function applyTemplate(templateId, resetText = false) {
 }
 
 function addText(overrides = {}) {
+  const safeRect = activeSafeZoneRect() || { x: 0, y: 0, w: state.format.width, h: state.format.height };
+  const width = Math.round(Math.min(state.format.width * 0.72, safeRect.w * 0.88));
   const item = {
     id: uid("text"),
     text: "Ny tekst",
-    x: Math.round(state.format.width * 0.12),
-    y: Math.round(state.format.height * 0.14),
-    w: Math.round(state.format.width * 0.72),
+    isPlaceholder: true,
+    x: Math.round(safeRect.x + (safeRect.w - width) / 2),
+    y: Math.round(safeRect.y + safeRect.h * 0.18),
+    w: width,
     fontSize: Math.round(Math.max(36, state.format.width * 0.055)),
     bg: "#ef8a17",
     color: "#111827",
@@ -228,12 +238,24 @@ function renderTemplateButtons() {
 function renderTextList() {
   textList.innerHTML = "";
   state.texts.forEach((item, index) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `text-chip${item.id === state.selectedTextId ? " active" : ""}`;
-    button.dataset.text = item.id;
-    button.innerHTML = `<span>${item.text || `Tekst ${index + 1}`}</span><small>${index + 1}</small>`;
-    textList.append(button);
+    const label = item.text || (item.isPlaceholder ? "Ny tekst" : "Tom tekst");
+    const row = document.createElement("div");
+    row.className = `text-chip${item.id === state.selectedTextId ? " active" : ""}`;
+    row.innerHTML = `
+      <button class="text-select" data-text="${item.id}" type="button">
+        <span>${escapeHtml(label)}</span><small>${index + 1}</small>
+      </button>
+      <button class="text-delete" data-delete-text="${item.id}" type="button" aria-label="Slett tekstboks">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 6h18"></path>
+          <path d="M8 6V4h8v2"></path>
+          <path d="M19 6l-1 14H6L5 6"></path>
+          <path d="M10 11v5"></path>
+          <path d="M14 11v5"></path>
+        </svg>
+      </button>
+    `;
+    textList.append(row);
   });
 }
 
@@ -255,24 +277,12 @@ function renderSwatches(containerId, input, property) {
 }
 
 function setFormat(format) {
-  const oldWidth = state.format.width;
-  const oldHeight = state.format.height;
   state.format = { ...format };
+  state.safeZone.preset = format.safeZone || "auto";
   canvas.width = state.format.width;
   canvas.height = state.format.height;
-
-  const sx = state.format.width / oldWidth;
-  const sy = state.format.height / oldHeight;
-  state.texts.forEach((item) => {
-    item.x = Math.round(item.x * sx);
-    item.y = Math.round(item.y * sy);
-    item.w = Math.round(item.w * sx);
-    item.fontSize = Math.round(item.fontSize * Math.min(sx, sy));
-  });
-  state.logo.x = Math.round(state.logo.x * sx);
-  state.logo.y = Math.round(state.logo.y * sy);
-  state.logo.w = Math.round(state.logo.w * Math.min(sx, sy));
   applyTemplate(state.template, false);
+  fitDesignToFormat();
 }
 
 function updateControls() {
@@ -295,12 +305,8 @@ function updateControls() {
 
   logoVisible.checked = state.logo.visible;
   logoSize.value = state.logo.w;
-  safeZoneVisible.checked = state.safeZone.visible;
   document.querySelectorAll("#logoVariant button").forEach((button) => {
     button.classList.toggle("active", button.dataset.logo === state.logo.variant);
-  });
-  document.querySelectorAll("#safeZonePreset button").forEach((button) => {
-    button.classList.toggle("active", button.dataset.safeZone === state.safeZone.preset);
   });
 
   const text = selectedText();
@@ -350,6 +356,82 @@ function updateSelectedText(changes) {
   const text = selectedText();
   if (!text) return;
   Object.assign(text, changes);
+  if (Object.prototype.hasOwnProperty.call(changes, "text")) {
+    text.isPlaceholder = false;
+  }
+  updateControls();
+  draw();
+}
+
+function activateTextForEditing(id) {
+  const text = state.texts.find((item) => item.id === id);
+  if (!text) return;
+  state.selectedTextId = text.id;
+  state.selectedSlotId = null;
+  if (text.isPlaceholder) {
+    text.text = "";
+    text.isPlaceholder = false;
+  }
+  requestAnimationFrame(() => {
+    textContent.focus();
+    textContent.select();
+  });
+}
+
+function deleteText(id) {
+  const index = state.texts.findIndex((item) => item.id === id);
+  if (index === -1) return;
+  state.texts.splice(index, 1);
+  if (state.selectedTextId === id) {
+    state.selectedTextId = state.texts[Math.min(index, state.texts.length - 1)]?.id || null;
+  }
+  updateControls();
+  draw();
+}
+
+function logoAspect() {
+  const image = logoImages[state.logo.variant];
+  return image?.naturalHeight ? image.naturalHeight / image.naturalWidth : 0.42;
+}
+
+function defaultLogoWidth() {
+  const safeRect = activeSafeZoneRect() || { w: state.format.width };
+  return Math.round(clamp(state.format.width * 0.18, 110, Math.min(280, safeRect.w * 0.38)));
+}
+
+function fitLogoToFormat() {
+  state.logo.w = defaultLogoWidth();
+  setLogoPosition(state.logo.position || "tl", false);
+}
+
+function fitTextBoxesToFormat() {
+  if (state.texts.length === 0) return;
+  const safeRect = activeSafeZoneRect() || { x: 0, y: 0, w: state.format.width, h: state.format.height };
+  const gap = Math.round(Math.max(18, Math.min(state.format.width, state.format.height) * 0.024));
+  const width = Math.round(Math.min(state.format.width * 0.86, safeRect.w * 0.92));
+  const baseFont = clamp(state.format.width * 0.07, 30, isVerticalPlacement() ? 86 : 112);
+
+  state.texts.forEach((item, index) => {
+    item.w = width;
+    item.fontSize = Math.round(clamp(baseFont * (index === 0 ? 1 : 0.78), 24, 120));
+    item.padding = Math.round(clamp(item.fontSize * 0.36, 14, 34));
+    item.h = measureTextItem(item).height;
+  });
+
+  const totalHeight = state.texts.reduce((sum, item) => sum + item.h, 0) + gap * Math.max(0, state.texts.length - 1);
+  let y = Math.round(safeRect.y + safeRect.h * (state.template === "quote" ? 0.36 : 0.68));
+  y = Math.round(clamp(y, safeRect.y, safeRect.y + safeRect.h - totalHeight));
+
+  state.texts.forEach((item) => {
+    item.x = Math.round(safeRect.x + (safeRect.w - item.w) / 2);
+    item.y = y;
+    y += item.h + gap;
+  });
+}
+
+function fitDesignToFormat() {
+  fitTextBoxesToFormat();
+  fitLogoToFormat();
   updateControls();
   draw();
 }
@@ -398,11 +480,13 @@ function activeSafeZoneRect() {
 
   const minWidth = Math.round(state.format.width * 0.32);
   const minHeight = Math.round(state.format.height * 0.32);
-  const width = Math.max(minWidth, state.format.width - margins.left - margins.right);
-  const height = Math.max(minHeight, state.format.height - margins.top - margins.bottom);
+  const rawWidth = state.format.width - margins.left - margins.right;
+  const rawHeight = state.format.height - margins.top - margins.bottom;
+  const width = Math.max(minWidth, rawWidth);
+  const height = Math.max(minHeight, rawHeight);
   return {
-    x: Math.round((state.format.width - width + margins.left - margins.right) / 2),
-    y: Math.round((state.format.height - height + margins.top - margins.bottom) / 2),
+    x: Math.round(width === rawWidth ? margins.left : (state.format.width - width) / 2),
+    y: Math.round(height === rawHeight ? margins.top : (state.format.height - height) / 2),
     w: width,
     h: height,
     label: margins.label
@@ -788,8 +872,7 @@ function pointerDown(event) {
   state.snapGuides = [];
   const text = hitText(point);
   if (text) {
-    state.selectedTextId = text.id;
-    state.selectedSlotId = null;
+    activateTextForEditing(text.id);
     drag = { type: "text", id: text.id, start: point, x: text.x, y: text.y };
     updateControls();
     draw();
@@ -879,7 +962,7 @@ function handleFile(file) {
   reader.readAsDataURL(file);
 }
 
-function setLogoPosition(pos) {
+function setLogoPosition(pos, shouldDraw = true) {
   const margin = Math.round(Math.min(state.format.width, state.format.height) * 0.055);
   const safeRect = activeSafeZoneRect();
   const image = logoImages[state.logo.variant];
@@ -898,9 +981,10 @@ function setLogoPosition(pos) {
     br: [bounds.x + bounds.w - state.logo.w, bounds.y + bounds.h - h]
   };
   const [x, y] = positions[pos] || positions.tl;
+  state.logo.position = pos;
   state.logo.x = Math.round(x);
   state.logo.y = Math.round(y);
-  draw();
+  if (shouldDraw) draw();
 }
 
 function exportCanvas(download = true) {
@@ -929,12 +1013,13 @@ function resetPost() {
   state.format = { ...FORMATS[0] };
   state.template = "headline";
   state.texts = [];
-  state.logo = { visible: true, variant: "color", x: 58, y: 58, w: 190 };
-  state.safeZone = { visible: true, preset: "auto" };
+  state.logo = { visible: true, variant: "color", position: "tl", x: 58, y: 58, w: 190 };
+  state.safeZone = { visible: true, preset: FORMATS[0].safeZone };
   state.snapGuides = [];
   canvas.width = state.format.width;
   canvas.height = state.format.height;
   applyTemplate("headline", true);
+  fitDesignToFormat();
 }
 
 formatGrid.addEventListener("click", (event) => {
@@ -1018,29 +1103,24 @@ logoSize.addEventListener("input", () => {
   draw();
 });
 
-safeZoneVisible.addEventListener("change", () => {
-  state.safeZone.visible = safeZoneVisible.checked;
-  updateControls();
-  draw();
-});
-document.querySelector("#safeZonePreset").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-safe-zone]");
-  if (!button) return;
-  state.safeZone.preset = button.dataset.safeZone;
-  updateControls();
-  draw();
-});
-
 document.querySelector("#addTextBtn").addEventListener("click", () => {
   addText();
+  fitTextBoxesToFormat();
   updateControls();
   draw();
 });
 textList.addEventListener("click", (event) => {
+  const deleteButton = event.target.closest("[data-delete-text]");
+  if (deleteButton) {
+    deleteText(deleteButton.dataset.deleteText);
+    return;
+  }
+
   const button = event.target.closest("[data-text]");
   if (!button) return;
   state.selectedTextId = button.dataset.text;
   state.selectedSlotId = null;
+  activateTextForEditing(state.selectedTextId);
   updateControls();
   draw();
 });
@@ -1054,11 +1134,7 @@ document.querySelector("#textAlign").addEventListener("click", (event) => {
   if (button) updateSelectedText({ align: button.dataset.align });
 });
 document.querySelector("#deleteTextBtn").addEventListener("click", () => {
-  if (!state.selectedTextId) return;
-  state.texts = state.texts.filter((item) => item.id !== state.selectedTextId);
-  state.selectedTextId = state.texts[0]?.id || null;
-  updateControls();
-  draw();
+  deleteText(state.selectedTextId);
 });
 
 canvas.addEventListener("pointerdown", pointerDown);

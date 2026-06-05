@@ -19,7 +19,7 @@ Bildene brukerne laster opp behandles i nettleseren og sendes ikke til en server
 
 ## Trygg sone
 
-Editoren har safe-zone presets for `Auto`, `9:16`, `TikTok`, `Reels`, `Story` og `Snap`. Guidene vises bare i editoren og blir ikke med i PNG-eksporten. Presets er konservative arbeidsmaler, siden faktisk visning kan variere med device, captions og interaktive elementer.
+Editoren velger trygg sone automatisk ut fra formatet. Guidene vises bare i editoren og blir ikke med i PNG-eksporten. Sonene er konservative arbeidsmaler, siden faktisk visning kan variere med device, captions og interaktive elementer.
 
 ## SA-farger
 
