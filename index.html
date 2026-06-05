@@ -70,6 +70,15 @@
               <button class="wide-btn" id="imageBtn" type="button">Velg bilde</button>
               <button class="small-btn" id="nextSlotBtn" type="button">Bytt felt</button>
             </div>
+            <div class="background-block">
+              <span>Bakgrunn uten bilde</span>
+              <div class="background-swatches" id="backgroundSwatches">
+                <button data-bg="" type="button">Ingen</button>
+                <button data-bg="#e40200" type="button" title="SA-rød"></button>
+                <button data-bg="#0064dc" type="button" title="SA-blå"></button>
+                <button data-bg="#ef8a17" type="button" title="SA-oransje"></button>
+              </div>
+            </div>
             <label class="range-label">Zoom <input id="imageZoom" type="range" min="1" max="3" step="0.01" value="1"></label>
             <label class="range-label">Lys <input id="imageBrightness" type="range" min="0.65" max="1.35" step="0.01" value="1"></label>
             <label class="range-label">Mørk vignett <input id="imageVignette" type="range" min="0" max="0.65" step="0.01" value="0"></label>

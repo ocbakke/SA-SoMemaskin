@@ -48,6 +48,7 @@ const imageZoom = document.querySelector("#imageZoom");
 const imageBrightness = document.querySelector("#imageBrightness");
 const imageVignette = document.querySelector("#imageVignette");
 const imageBottomShadow = document.querySelector("#imageBottomShadow");
+const backgroundSwatches = document.querySelector("#backgroundSwatches");
 const textList = document.querySelector("#textList");
 const textEditor = document.querySelector("#canvasTextEditor");
 const fontSize = document.querySelector("#fontSize");
@@ -106,7 +107,8 @@ function createSlot(rect, previous) {
     offsetY: previous?.offsetY || 0,
     brightness: previous?.brightness || 1,
     vignette: previous?.vignette || 0,
-    bottomShadow: previous?.bottomShadow || 0
+    bottomShadow: previous?.bottomShadow || 0,
+    bgColor: previous?.bgColor || ""
   };
 }
 
@@ -342,6 +344,9 @@ function updateControls() {
     imageBrightness.value = slot.brightness;
     imageVignette.value = slot.vignette;
     imageBottomShadow.value = slot.bottomShadow || 0;
+    backgroundSwatches.querySelectorAll("[data-bg]").forEach((button) => {
+      button.classList.toggle("active", button.dataset.bg === (slot.bgColor || ""));
+    });
   }
 
   logoVisible.checked = state.logo.visible;
@@ -756,12 +761,14 @@ function drawSlot(slot) {
       ctx.fillRect(rect.x, startY, rect.w, rect.y + rect.h - startY);
     }
   } else {
-    ctx.fillStyle = "#e7edf3";
+    ctx.fillStyle = slot.bgColor || "#e7edf3";
     ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
-    ctx.strokeStyle = "#c9d3df";
-    ctx.lineWidth = Math.max(2, state.format.width * 0.002);
-    ctx.strokeRect(rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
-    drawPlaceholder(rect);
+    if (!slot.bgColor) {
+      ctx.strokeStyle = "#c9d3df";
+      ctx.lineWidth = Math.max(2, state.format.width * 0.002);
+      ctx.strokeRect(rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
+      drawPlaceholder(rect);
+    }
   }
 
   ctx.restore();
@@ -1322,6 +1329,11 @@ imageZoom.addEventListener("input", () => updateSelectedSlot({ zoom: Number(imag
 imageBrightness.addEventListener("input", () => updateSelectedSlot({ brightness: Number(imageBrightness.value) }));
 imageVignette.addEventListener("input", () => updateSelectedSlot({ vignette: Number(imageVignette.value) }));
 imageBottomShadow.addEventListener("input", () => updateSelectedSlot({ bottomShadow: Number(imageBottomShadow.value) }));
+backgroundSwatches.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-bg]");
+  if (!button) return;
+  updateSelectedSlot({ bgColor: button.dataset.bg });
+});
 document.querySelector("#resetImageAdjustmentsBtn").addEventListener("click", () => updateSelectedSlot({
   zoom: 1,
   brightness: 1,
