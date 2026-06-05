@@ -763,9 +763,14 @@ function measureTextItem(item) {
   ctx.font = textFont(item);
   const lines = wrapText(ctx, item.text, item.w - item.padding * 2);
   const lineHeight = item.fontSize * 1.06;
+  const metrics = lines.map((line) => ctx.measureText(line || "M"));
+  const ascent = Math.max(...metrics.map((metric) => metric.actualBoundingBoxAscent || item.fontSize * 0.76));
+  const descent = Math.max(...metrics.map((metric) => metric.actualBoundingBoxDescent || item.fontSize * 0.22));
+  const visualHeight = ascent + descent;
+  const baselineOffset = (lineHeight - visualHeight) / 2 + ascent;
   const height = Math.ceil(lines.length * lineHeight + item.padding * 2);
   ctx.restore();
-  return { lines, lineHeight, height };
+  return { lines, lineHeight, height, baselineOffset };
 }
 
 function drawTextItem(item) {
@@ -782,14 +787,14 @@ function drawTextItem(item) {
   ctx.fillStyle = item.color;
   ctx.font = textFont(item);
   ctx.textAlign = item.align;
-  ctx.textBaseline = "top";
+  ctx.textBaseline = "alphabetic";
   const x = {
     left: item.x + item.padding,
     center: item.x + item.w / 2,
     right: item.x + item.w - item.padding
   }[item.align];
   measured.lines.forEach((line, index) => {
-    ctx.fillText(line, x, item.y + item.padding + index * measured.lineHeight);
+    ctx.fillText(line, x, item.y + item.padding + measured.baselineOffset + index * measured.lineHeight);
   });
   ctx.restore();
 }
