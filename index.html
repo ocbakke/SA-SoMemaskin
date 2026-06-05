@@ -71,12 +71,16 @@
               <button class="small-btn" id="nextSlotBtn" type="button">Bytt felt</button>
             </div>
             <div class="background-block">
-              <span>Bakgrunn uten bilde</span>
+              <span>Bakgrunn</span>
               <div class="background-swatches" id="backgroundSwatches">
                 <button data-bg="" type="button">Ingen</button>
                 <button data-bg="#e40200" type="button" title="SA-rød"></button>
                 <button data-bg="#0064dc" type="button" title="SA-blå"></button>
                 <button data-bg="#ef8a17" type="button" title="SA-oransje"></button>
+                <label class="spectrum-picker" title="Velg egen bakgrunnsfarge">
+                  <input id="backgroundColor" type="color" value="#e40200">
+                  <span>Egen</span>
+                </label>
               </div>
             </div>
             <label class="range-label">Zoom <input id="imageZoom" type="range" min="1" max="3" step="0.01" value="1"></label>

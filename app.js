@@ -49,6 +49,7 @@ const imageBrightness = document.querySelector("#imageBrightness");
 const imageVignette = document.querySelector("#imageVignette");
 const imageBottomShadow = document.querySelector("#imageBottomShadow");
 const backgroundSwatches = document.querySelector("#backgroundSwatches");
+const backgroundColor = document.querySelector("#backgroundColor");
 const textList = document.querySelector("#textList");
 const textEditor = document.querySelector("#canvasTextEditor");
 const fontSize = document.querySelector("#fontSize");
@@ -74,6 +75,7 @@ const state = {
   texts: [],
   selectedTextId: null,
   editingTextId: null,
+  backgroundColor: "",
   logo: { visible: true, variant: "color", position: "tl", x: 58, y: 58, w: 190 },
   safeZone: { visible: true, preset: "feed" },
   snapGuides: []
@@ -344,10 +346,11 @@ function updateControls() {
     imageBrightness.value = slot.brightness;
     imageVignette.value = slot.vignette;
     imageBottomShadow.value = slot.bottomShadow || 0;
-    backgroundSwatches.querySelectorAll("[data-bg]").forEach((button) => {
-      button.classList.toggle("active", button.dataset.bg === (slot.bgColor || ""));
-    });
   }
+  backgroundSwatches.querySelectorAll("[data-bg]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.bg === state.backgroundColor);
+  });
+  backgroundColor.value = state.backgroundColor || "#e40200";
 
   logoVisible.checked = state.logo.visible;
   logoSize.value = state.logo.w;
@@ -671,9 +674,13 @@ function rectInsideSafeZone(rect) {
   );
 }
 
+function postBackgroundColor() {
+  return state.backgroundColor || (state.template === "inset" ? "#f4f6f9" : "#edf1f5");
+}
+
 function draw(includeSelection = true) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = state.template === "inset" ? "#f4f6f9" : "#edf1f5";
+  ctx.fillStyle = postBackgroundColor();
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   state.slots.forEach(drawSlot);
   drawSlotDividers();
@@ -729,6 +736,9 @@ function drawSlot(slot) {
   ctx.clip();
 
   if (slot.image) {
+    ctx.fillStyle = postBackgroundColor();
+    ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+
     const image = slot.image;
     const baseScale = slot.fit === "contain"
       ? Math.min(rect.w / image.naturalWidth, rect.h / image.naturalHeight)
@@ -761,9 +771,10 @@ function drawSlot(slot) {
       ctx.fillRect(rect.x, startY, rect.w, rect.y + rect.h - startY);
     }
   } else {
-    ctx.fillStyle = slot.bgColor || "#e7edf3";
+    const bg = state.backgroundColor || slot.bgColor;
+    ctx.fillStyle = bg || "#e7edf3";
     ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
-    if (!slot.bgColor) {
+    if (!bg) {
       ctx.strokeStyle = "#c9d3df";
       ctx.lineWidth = Math.max(2, state.format.width * 0.002);
       ctx.strokeRect(rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
@@ -1270,6 +1281,7 @@ function resetPost() {
   state.template = "headline";
   state.texts = [];
   state.logo = { visible: true, variant: "color", position: "tl", x: 58, y: 58, w: 190 };
+  state.backgroundColor = "";
   state.safeZone = { visible: true, preset: FORMATS[0].safeZone };
   state.snapGuides = [];
   canvas.width = state.format.width;
@@ -1329,11 +1341,18 @@ imageZoom.addEventListener("input", () => updateSelectedSlot({ zoom: Number(imag
 imageBrightness.addEventListener("input", () => updateSelectedSlot({ brightness: Number(imageBrightness.value) }));
 imageVignette.addEventListener("input", () => updateSelectedSlot({ vignette: Number(imageVignette.value) }));
 imageBottomShadow.addEventListener("input", () => updateSelectedSlot({ bottomShadow: Number(imageBottomShadow.value) }));
+function updateBackgroundColor(color) {
+  state.backgroundColor = color.toLowerCase();
+  updateControls();
+  draw();
+}
+
 backgroundSwatches.addEventListener("click", (event) => {
   const button = event.target.closest("[data-bg]");
   if (!button) return;
-  updateSelectedSlot({ bgColor: button.dataset.bg });
+  updateBackgroundColor(button.dataset.bg);
 });
+backgroundColor.addEventListener("input", () => updateBackgroundColor(backgroundColor.value));
 document.querySelector("#resetImageAdjustmentsBtn").addEventListener("click", () => updateSelectedSlot({
   zoom: 1,
   brightness: 1,
