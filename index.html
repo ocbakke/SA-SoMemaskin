@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="no">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SA-SoMemaskin</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <img src="assets/sa-farget.svg" alt="Sarpsborg Arbeiderblad">
+          <div>
+            <strong>SA-SoMemaskin</strong>
+            <span>redaksjonelt bildeverktøy</span>
+          </div>
+        </div>
+        <div class="top-actions">
+          <button class="ghost-btn" id="resetBtn" type="button">Ny post</button>
+          <button class="ghost-btn" id="previewBtn" type="button">Forhåndsvis</button>
+          <button class="export-btn" id="exportBtn" type="button">Eksporter</button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="panel left-panel">
+          <section>
+            <div class="section-title">Formater</div>
+            <div class="format-grid" id="formatGrid"></div>
+            <div class="custom-size" id="customSize">
+              <label>Bredde <input id="customWidth" type="number" min="320" max="4096" value="1080"></label>
+              <label>Høyde <input id="customHeight" type="number" min="320" max="4096" value="1080"></label>
+              <button class="small-btn" id="applyCustomSize" type="button">Bruk</button>
+            </div>
+          </section>
+
+          <section>
+            <div class="section-title">Maler</div>
+            <div class="template-grid" id="templateGrid"></div>
+          </section>
+
+          <section class="drop-card" id="dropCard">
+            <div class="drop-symbol">+</div>
+            <strong>Velg bilde</strong>
+            <span>Dra inn et bilde eller klikk her</span>
+          </section>
+        </aside>
+
+        <section class="stage-wrap">
+          <div class="stage-toolbar">
+            <div class="status-pill" id="formatStatus"></div>
+            <div class="mini-actions">
+              <button class="icon-btn" id="zoomOutBtn" type="button" title="Zoom ut">-</button>
+              <button class="icon-btn" id="zoomInBtn" type="button" title="Zoom inn">+</button>
+              <button class="small-btn" id="fitCoverBtn" type="button">Dekk</button>
+              <button class="small-btn" id="fitContainBtn" type="button">Hele</button>
+            </div>
+          </div>
+          <div class="canvas-frame">
+            <canvas id="postCanvas" width="1080" height="1080"></canvas>
+          </div>
+        </section>
+
+        <aside class="panel right-panel">
+          <section>
+            <div class="section-title">Bilde</div>
+            <div class="control-row">
+              <button class="wide-btn" id="imageBtn" type="button">Velg bilde</button>
+              <button class="small-btn" id="nextSlotBtn" type="button">Bytt felt</button>
+            </div>
+            <label class="range-label">Zoom <input id="imageZoom" type="range" min="1" max="3" step="0.01" value="1"></label>
+            <label class="range-label">Lys <input id="imageBrightness" type="range" min="0.65" max="1.35" step="0.01" value="1"></label>
+            <label class="range-label">Mørk vignett <input id="imageVignette" type="range" min="0" max="0.65" step="0.01" value="0"></label>
+          </section>
+
+          <section>
+            <div class="section-head">
+              <div class="section-title">Logo</div>
+              <label class="switch"><input id="logoVisible" type="checkbox" checked><span></span></label>
+            </div>
+            <div class="segmented four" id="logoVariant">
+              <button class="active" data-logo="color" type="button">Farget</button>
+              <button data-logo="white" type="button">Hvit</button>
+              <button data-logo="black" type="button">Sort</button>
+              <button data-logo="fullColor" type="button">SA.no</button>
+            </div>
+            <div class="position-grid" id="logoPosition">
+              <button data-pos="tl" type="button">Oppe V</button>
+              <button data-pos="tr" type="button">Oppe H</button>
+              <button data-pos="bl" type="button">Nede V</button>
+              <button data-pos="br" type="button">Nede H</button>
+            </div>
+            <label class="range-label">Størrelse <input id="logoSize" type="range" min="80" max="520" value="190"></label>
+          </section>
+
+          <section>
+            <div class="section-head">
+              <div class="section-title">Tekstbokser</div>
+              <button class="small-btn" id="addTextBtn" type="button">Legg til</button>
+            </div>
+            <div class="text-list" id="textList"></div>
+            <label class="field-label">Tekst <textarea id="textContent" rows="3"></textarea></label>
+            <div class="control-row two">
+              <label class="field-label">Størrelse <input id="fontSize" type="number" min="18" max="180"></label>
+              <label class="field-label">Bredde <input id="textWidth" type="number" min="180" max="1800"></label>
+            </div>
+            <div class="swatch-block">
+              <span>Boksfarge</span>
+              <div class="swatches" id="boxSwatches"></div>
+              <input id="boxColor" type="color" value="#e40200">
+            </div>
+            <div class="swatch-block">
+              <span>Tekstfarge</span>
+              <div class="swatches" id="textSwatches"></div>
+              <input id="textColor" type="color" value="#ffffff">
+            </div>
+            <div class="segmented three" id="textAlign">
+              <button data-align="left" type="button">Venstre</button>
+              <button class="active" data-align="center" type="button">Midt</button>
+              <button data-align="right" type="button">Høyre</button>
+            </div>
+            <button class="small-btn danger" id="deleteTextBtn" type="button">Slett valgt</button>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <input id="fileInput" type="file" accept="image/*" hidden>
+    <script src="app.js"></script>
+  </body>
+</html>
