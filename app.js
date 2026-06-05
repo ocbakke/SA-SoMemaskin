@@ -26,6 +26,13 @@ const LOGOS = {
 const PALETTE = ["#e40200", "#0064dc", "#ef8a17", "#111827", "#ffffff", "#00584f", "#f7f8fb"];
 const SNAP_THRESHOLD = 24;
 const SNAP_GAP = 24;
+const SAFE_ZONE_PRESETS = {
+  universal: { label: "9:16", margins: { top: 270, right: 170, bottom: 670, left: 70 } },
+  tiktok: { label: "TikTok", margins: { top: 140, right: 170, bottom: 480, left: 60 } },
+  reels: { label: "Reels", margins: { top: 270, right: 70, bottom: 670, left: 70 } },
+  story: { label: "Story", margins: { top: 250, right: 60, bottom: 340, left: 60 } },
+  snapchat: { label: "Snap", margins: { top: 200, right: 40, bottom: 370, left: 40 } }
+};
 
 const canvas = document.querySelector("#postCanvas");
 const ctx = canvas.getContext("2d");
@@ -47,6 +54,7 @@ const boxColor = document.querySelector("#boxColor");
 const textColor = document.querySelector("#textColor");
 const logoVisible = document.querySelector("#logoVisible");
 const logoSize = document.querySelector("#logoSize");
+const safeZoneVisible = document.querySelector("#safeZoneVisible");
 
 const logoImages = {};
 let drag = null;
@@ -59,6 +67,7 @@ const state = {
   texts: [],
   selectedTextId: null,
   logo: { visible: true, variant: "color", x: 58, y: 58, w: 190 },
+  safeZone: { visible: true, preset: "auto" },
   snapGuides: []
 };
 
@@ -122,11 +131,13 @@ function applyTemplate(templateId, resetText = false) {
   }
 
   if (templateId === "headline" && state.texts.length === 0) {
+    const safeRect = activeSafeZoneRect() || { x: 0, y: 0, w: state.format.width, h: state.format.height };
+    const boxWidth = Math.round(Math.min(state.format.width * 0.84, safeRect.w * 0.92));
     addText({
       text: "Skriv tittel her",
-      x: Math.round(state.format.width * 0.08),
-      y: Math.round(state.format.height * 0.68),
-      w: Math.round(state.format.width * 0.84),
+      x: Math.round(safeRect.x + (safeRect.w - boxWidth) / 2),
+      y: Math.round(safeRect.y + safeRect.h * 0.66),
+      w: boxWidth,
       fontSize: Math.round(state.format.width * 0.07),
       bg: "#e40200",
       color: "#ffffff"
@@ -134,11 +145,13 @@ function applyTemplate(templateId, resetText = false) {
   }
 
   if (templateId === "quote" && state.texts.length === 0) {
+    const safeRect = activeSafeZoneRect() || { x: 0, y: 0, w: state.format.width, h: state.format.height };
+    const boxWidth = Math.round(Math.min(state.format.width * 0.8, safeRect.w * 0.88));
     addText({
       text: "Sitat eller hovedpoeng",
-      x: Math.round(state.format.width * 0.1),
-      y: Math.round(state.format.height * 0.36),
-      w: Math.round(state.format.width * 0.8),
+      x: Math.round(safeRect.x + (safeRect.w - boxWidth) / 2),
+      y: Math.round(safeRect.y + safeRect.h * 0.36),
+      w: boxWidth,
       fontSize: Math.round(state.format.width * 0.075),
       bg: "#0064dc",
       color: "#ffffff"
@@ -282,8 +295,12 @@ function updateControls() {
 
   logoVisible.checked = state.logo.visible;
   logoSize.value = state.logo.w;
+  safeZoneVisible.checked = state.safeZone.visible;
   document.querySelectorAll("#logoVariant button").forEach((button) => {
     button.classList.toggle("active", button.dataset.logo === state.logo.variant);
+  });
+  document.querySelectorAll("#safeZonePreset button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.safeZone === state.safeZone.preset);
   });
 
   const text = selectedText();
@@ -346,6 +363,63 @@ function absoluteRect(slot) {
   };
 }
 
+function isVerticalPlacement() {
+  return state.format.height / state.format.width >= 1.55;
+}
+
+function autoSafeZonePreset() {
+  return isVerticalPlacement() ? "universal" : "feed";
+}
+
+function safeZoneMargins() {
+  if (!state.safeZone.visible) return null;
+
+  const preset = state.safeZone.preset === "auto" ? autoSafeZonePreset() : state.safeZone.preset;
+  if (preset === "feed") {
+    const margin = Math.round(Math.min(state.format.width, state.format.height) * 0.055);
+    return { top: margin, right: margin, bottom: margin, left: margin, label: "Feed" };
+  }
+
+  const spec = SAFE_ZONE_PRESETS[preset] || SAFE_ZONE_PRESETS.universal;
+  const horizontalScale = state.format.width / 1080;
+  const verticalScale = state.format.height / 1920;
+  return {
+    top: Math.round(spec.margins.top * verticalScale),
+    right: Math.round(spec.margins.right * horizontalScale),
+    bottom: Math.round(spec.margins.bottom * verticalScale),
+    left: Math.round(spec.margins.left * horizontalScale),
+    label: spec.label
+  };
+}
+
+function activeSafeZoneRect() {
+  const margins = safeZoneMargins();
+  if (!margins) return null;
+
+  const minWidth = Math.round(state.format.width * 0.32);
+  const minHeight = Math.round(state.format.height * 0.32);
+  const width = Math.max(minWidth, state.format.width - margins.left - margins.right);
+  const height = Math.max(minHeight, state.format.height - margins.top - margins.bottom);
+  return {
+    x: Math.round((state.format.width - width + margins.left - margins.right) / 2),
+    y: Math.round((state.format.height - height + margins.top - margins.bottom) / 2),
+    w: width,
+    h: height,
+    label: margins.label
+  };
+}
+
+function rectInsideSafeZone(rect) {
+  const safeRect = activeSafeZoneRect();
+  if (!safeRect) return true;
+  return (
+    rect.x >= safeRect.x &&
+    rect.y >= safeRect.y &&
+    rect.x + rect.w <= safeRect.x + safeRect.w &&
+    rect.y + rect.h <= safeRect.y + safeRect.h
+  );
+}
+
 function draw(includeSelection = true) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = state.template === "inset" ? "#f4f6f9" : "#edf1f5";
@@ -354,9 +428,32 @@ function draw(includeSelection = true) {
   state.texts.forEach(drawTextItem);
   drawLogo();
   if (includeSelection) {
+    drawSafeZoneOverlay();
     drawSnapGuides();
     drawSelection();
   }
+}
+
+function drawSafeZoneOverlay() {
+  const safeRect = activeSafeZoneRect();
+  if (!safeRect) return;
+
+  ctx.save();
+  ctx.fillStyle = "rgba(228, 2, 0, 0.1)";
+  ctx.fillRect(0, 0, state.format.width, safeRect.y);
+  ctx.fillRect(0, safeRect.y + safeRect.h, state.format.width, state.format.height - safeRect.y - safeRect.h);
+  ctx.fillRect(0, safeRect.y, safeRect.x, safeRect.h);
+  ctx.fillRect(safeRect.x + safeRect.w, safeRect.y, state.format.width - safeRect.x - safeRect.w, safeRect.h);
+  ctx.strokeStyle = "#0064dc";
+  ctx.lineWidth = Math.max(2, state.format.width * 0.0022);
+  ctx.setLineDash([16, 10]);
+  ctx.strokeRect(safeRect.x, safeRect.y, safeRect.w, safeRect.h);
+  ctx.fillStyle = "rgba(0, 100, 220, 0.92)";
+  ctx.font = `900 ${Math.max(18, state.format.width * 0.018)}px Arial, sans-serif`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText(`TRYGG SONE · ${safeRect.label}`, safeRect.x + 18, safeRect.y + 18);
+  ctx.restore();
 }
 
 function drawSlot(slot) {
@@ -542,9 +639,10 @@ function drawSnapGuides() {
 function drawSelection() {
   const text = selectedText();
   if (text) {
+    const safe = rectInsideSafeZone({ x: text.x, y: text.y, w: text.w, h: text.h });
     ctx.save();
     ctx.setLineDash([14, 10]);
-    ctx.strokeStyle = "#fff";
+    ctx.strokeStyle = safe ? "#fff" : "#e40200";
     ctx.lineWidth = Math.max(2, state.format.width * 0.003);
     ctx.strokeRect(text.x - 8, text.y - 8, text.w + 16, text.h + 16);
     ctx.strokeStyle = "#111827";
@@ -598,6 +696,7 @@ function hitSlot(point) {
 
 function textSnapTargets(text) {
   const margin = Math.round(Math.min(state.format.width, state.format.height) * 0.055);
+  const safeRect = activeSafeZoneRect();
   const xTargets = [
     { edge: "left", target: margin, x: margin, guide: margin },
     { edge: "center", target: state.format.width / 2, x: state.format.width / 2 - text.w / 2, guide: state.format.width / 2 },
@@ -608,6 +707,19 @@ function textSnapTargets(text) {
     { edge: "middle", target: state.format.height / 2, y: state.format.height / 2 - text.h / 2, guide: state.format.height / 2 },
     { edge: "bottom", target: state.format.height - margin, y: state.format.height - margin - text.h, guide: state.format.height - margin }
   ];
+
+  if (safeRect) {
+    xTargets.push(
+      { edge: "left", target: safeRect.x, x: safeRect.x, guide: safeRect.x },
+      { edge: "center", target: safeRect.x + safeRect.w / 2, x: safeRect.x + safeRect.w / 2 - text.w / 2, guide: safeRect.x + safeRect.w / 2 },
+      { edge: "right", target: safeRect.x + safeRect.w, x: safeRect.x + safeRect.w - text.w, guide: safeRect.x + safeRect.w }
+    );
+    yTargets.push(
+      { edge: "top", target: safeRect.y, y: safeRect.y, guide: safeRect.y },
+      { edge: "middle", target: safeRect.y + safeRect.h / 2, y: safeRect.y + safeRect.h / 2 - text.h / 2, guide: safeRect.y + safeRect.h / 2 },
+      { edge: "bottom", target: safeRect.y + safeRect.h, y: safeRect.y + safeRect.h - text.h, guide: safeRect.y + safeRect.h }
+    );
+  }
 
   state.texts.forEach((other) => {
     if (other.id === text.id) return;
@@ -769,14 +881,21 @@ function handleFile(file) {
 
 function setLogoPosition(pos) {
   const margin = Math.round(Math.min(state.format.width, state.format.height) * 0.055);
+  const safeRect = activeSafeZoneRect();
   const image = logoImages[state.logo.variant];
   const aspect = image?.naturalHeight ? image.naturalHeight / image.naturalWidth : 0.42;
   const h = state.logo.w * aspect;
+  const bounds = safeRect || {
+    x: margin,
+    y: margin,
+    w: state.format.width - margin * 2,
+    h: state.format.height - margin * 2
+  };
   const positions = {
-    tl: [margin, margin],
-    tr: [state.format.width - state.logo.w - margin, margin],
-    bl: [margin, state.format.height - h - margin],
-    br: [state.format.width - state.logo.w - margin, state.format.height - h - margin]
+    tl: [bounds.x, bounds.y],
+    tr: [bounds.x + bounds.w - state.logo.w, bounds.y],
+    bl: [bounds.x, bounds.y + bounds.h - h],
+    br: [bounds.x + bounds.w - state.logo.w, bounds.y + bounds.h - h]
   };
   const [x, y] = positions[pos] || positions.tl;
   state.logo.x = Math.round(x);
@@ -811,6 +930,8 @@ function resetPost() {
   state.template = "headline";
   state.texts = [];
   state.logo = { visible: true, variant: "color", x: 58, y: 58, w: 190 };
+  state.safeZone = { visible: true, preset: "auto" };
+  state.snapGuides = [];
   canvas.width = state.format.width;
   canvas.height = state.format.height;
   applyTemplate("headline", true);
@@ -894,6 +1015,19 @@ logoVisible.addEventListener("change", () => {
 });
 logoSize.addEventListener("input", () => {
   state.logo.w = Number(logoSize.value);
+  draw();
+});
+
+safeZoneVisible.addEventListener("change", () => {
+  state.safeZone.visible = safeZoneVisible.checked;
+  updateControls();
+  draw();
+});
+document.querySelector("#safeZonePreset").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-safe-zone]");
+  if (!button) return;
+  state.safeZone.preset = button.dataset.safeZone;
+  updateControls();
   draw();
 });
 

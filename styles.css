@@ -196,6 +196,7 @@ input[type="range"] { accent-color: var(--sa-blue); }
 .segmented { display: grid; gap: 4px; padding: 4px; background: var(--soft); border-radius: 8px; }
 .segmented.four { grid-template-columns: repeat(4, 1fr); }
 .segmented.three { grid-template-columns: repeat(3, 1fr); margin-top: 14px; }
+.segmented.safe-zones { grid-template-columns: repeat(2, 1fr); }
 .segmented button {
   min-height: 34px;
   border: 0;
