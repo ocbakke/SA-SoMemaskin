@@ -49,10 +49,11 @@ const imageBrightness = document.querySelector("#imageBrightness");
 const imageVignette = document.querySelector("#imageVignette");
 const imageBottomShadow = document.querySelector("#imageBottomShadow");
 const textList = document.querySelector("#textList");
-const textContent = document.querySelector("#textContent");
+const textEditor = document.querySelector("#canvasTextEditor");
 const fontSize = document.querySelector("#fontSize");
 const fontSizeValue = document.querySelector("#fontSizeValue");
 const textWidth = document.querySelector("#textWidth");
+const textWidthValue = document.querySelector("#textWidthValue");
 const boxColor = document.querySelector("#boxColor");
 const textColor = document.querySelector("#textColor");
 const autoTextWidth = document.querySelector("#autoTextWidth");
@@ -71,6 +72,7 @@ const state = {
   selectedSlotId: null,
   texts: [],
   selectedTextId: null,
+  editingTextId: null,
   logo: { visible: true, variant: "color", position: "tl", x: 58, y: 58, w: 190 },
   safeZone: { visible: true, preset: "feed" },
   snapGuides: []
@@ -200,6 +202,32 @@ function addText(overrides = {}) {
   state.selectedTextId = item.id;
 }
 
+function addTextNearCurrent() {
+  const source = selectedText() || state.texts[state.texts.length - 1] || null;
+  const safeRect = activeSafeZoneRect() || { x: 0, y: 0, w: state.format.width, h: state.format.height };
+  const gap = Math.round(Math.max(18, Math.min(state.format.width, state.format.height) * 0.024));
+  const font = source?.fontSize || Math.round(Math.max(36, state.format.width * 0.055));
+  const width = source && !source.autoWidth ? source.w : defaultTextBoxWidth();
+  const center = source ? source.x + source.w / 2 : safeRect.x + safeRect.w / 2;
+  const y = source
+    ? Math.round(clamp(source.y + source.h + gap, safeRect.y, safeRect.y + safeRect.h - Math.max(90, source.h)))
+    : Math.round(safeRect.y + safeRect.h * 0.18);
+
+  addText({
+    fontSize: font,
+    padding: Math.round(clamp(font * 0.36, 14, 34)),
+    w: width,
+    x: Math.round(clamp(center - width / 2, safeRect.x, safeRect.x + safeRect.w - width)),
+    y
+  });
+
+  const item = selectedText();
+  if (item) {
+    item.h = measureTextItem(item).height;
+    item.y = Math.round(clamp(item.y, safeRect.y, safeRect.y + safeRect.h - item.h));
+  }
+}
+
 function selectedSlot() {
   return state.slots.find((slot) => slot.id === state.selectedSlotId) || state.slots[0] || null;
 }
@@ -321,17 +349,18 @@ function updateControls() {
 
   const text = selectedText();
   const disabled = !text;
-  [textContent, fontSize, boxColor, textColor, autoTextWidth, boxTransparency].forEach((input) => {
+  [fontSize, textWidth, boxColor, textColor, autoTextWidth, boxTransparency].forEach((input) => {
     input.disabled = disabled;
   });
   textWidth.disabled = disabled || Boolean(text?.autoWidth);
   document.querySelector("#deleteTextBtn").disabled = disabled;
 
   if (text) {
-    textContent.value = text.text;
     fontSize.value = text.fontSize;
     fontSizeValue.textContent = `${text.fontSize} px`;
+    textWidth.max = Math.max(1800, state.format.width);
     textWidth.value = text.w;
+    textWidthValue.textContent = `${text.w} px`;
     autoTextWidth.checked = Boolean(text.autoWidth);
     const transparency = Math.round((1 - (text.boxOpacity ?? 1)) * 100);
     boxTransparency.value = transparency;
@@ -342,10 +371,10 @@ function updateControls() {
       button.classList.toggle("active", button.dataset.align === text.align);
     });
   } else {
-    textContent.value = "";
     autoTextWidth.checked = false;
     boxTransparency.value = 0;
     fontSizeValue.textContent = "-";
+    textWidthValue.textContent = "-";
     boxTransparencyValue.textContent = "-";
   }
 
@@ -362,6 +391,7 @@ function resizeCanvasPreview() {
   const scale = Math.min(availableWidth / canvas.width, availableHeight / canvas.height, 1);
   canvas.style.width = `${Math.floor(canvas.width * scale)}px`;
   canvas.style.height = `${Math.floor(canvas.height * scale)}px`;
+  syncTextEditor();
 }
 
 function updateSelectedSlot(changes) {
@@ -384,9 +414,13 @@ function updateSelectedText(changes) {
     resetTextWidthToDefault(text, center);
   } else if (text.autoWidth && (Object.prototype.hasOwnProperty.call(changes, "text") || Object.prototype.hasOwnProperty.call(changes, "fontSize") || Object.prototype.hasOwnProperty.call(changes, "autoWidth"))) {
     fitAutoTextWidth(text, center);
+  } else if (Object.prototype.hasOwnProperty.call(changes, "w")) {
+    keepTextCenteredInSafeZone(text, center);
+    text.h = measureTextItem(text).height;
   }
   updateControls();
   draw();
+  syncTextEditor();
 }
 
 function defaultTextBoxWidth() {
@@ -397,8 +431,13 @@ function defaultTextBoxWidth() {
 function resetTextWidthToDefault(item, center = item.x + item.w / 2) {
   const safeRect = activeSafeZoneRect() || { x: 0, y: 0, w: state.format.width };
   item.w = defaultTextBoxWidth();
-  item.x = Math.round(clamp(center - item.w / 2, safeRect.x, safeRect.x + safeRect.w - item.w));
+  keepTextCenteredInSafeZone(item, center);
   item.h = measureTextItem(item).height;
+}
+
+function keepTextCenteredInSafeZone(item, center = item.x + item.w / 2) {
+  const safeRect = activeSafeZoneRect() || { x: 0, w: state.format.width };
+  item.x = Math.round(clamp(center - item.w / 2, safeRect.x, safeRect.x + safeRect.w - item.w));
 }
 
 function fitAutoTextWidth(item, center = item.x + item.w / 2) {
@@ -417,24 +456,86 @@ function fitAutoTextWidth(item, center = item.x + item.w / 2) {
   item.h = measureTextItem(item).height;
 }
 
+function colorWithOpacity(color, opacity = 1) {
+  const hex = color.replace("#", "");
+  const full = hex.length === 3 ? hex.split("").map((part) => part + part).join("") : hex;
+  const value = Number.parseInt(full, 16);
+  if (Number.isNaN(value)) return color;
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
+function textEditorGeometry(item) {
+  const canvasRect = canvas.getBoundingClientRect();
+  const frameRect = canvasFrame.getBoundingClientRect();
+  const scale = canvasRect.width / canvas.width;
+  return {
+    left: canvasRect.left - frameRect.left + item.x * scale,
+    top: canvasRect.top - frameRect.top + item.y * scale,
+    width: item.w * scale,
+    height: item.h * scale,
+    scale
+  };
+}
+
+function syncTextEditor() {
+  const text = state.texts.find((item) => item.id === state.editingTextId);
+  if (!text) {
+    hideTextEditor();
+    return;
+  }
+
+  text.h = measureTextItem(text).height;
+  const geometry = textEditorGeometry(text);
+  const radius = Math.min(18, Math.max(8, text.fontSize * 0.18)) * geometry.scale;
+
+  textEditor.classList.add("show");
+  if (document.activeElement !== textEditor || textEditor.value !== text.text) {
+    textEditor.value = text.text;
+  }
+  textEditor.style.left = `${geometry.left}px`;
+  textEditor.style.top = `${geometry.top}px`;
+  textEditor.style.width = `${geometry.width}px`;
+  textEditor.style.height = `${geometry.height}px`;
+  textEditor.style.padding = `${text.padding * geometry.scale}px`;
+  textEditor.style.borderRadius = `${radius}px`;
+  textEditor.style.background = colorWithOpacity(text.bg, text.boxOpacity ?? 1);
+  textEditor.style.color = text.color;
+  textEditor.style.font = `900 ${text.fontSize * geometry.scale}px "Arial Black", Impact, Arial, sans-serif`;
+  textEditor.style.lineHeight = `${text.fontSize * 1.06 * geometry.scale}px`;
+  textEditor.style.textAlign = text.align;
+}
+
+function hideTextEditor() {
+  state.editingTextId = null;
+  textEditor.classList.remove("show");
+}
+
 function activateTextForEditing(id) {
   const text = state.texts.find((item) => item.id === id);
   if (!text) return;
   state.selectedTextId = text.id;
   state.selectedSlotId = null;
+  state.editingTextId = text.id;
   if (text.isPlaceholder) {
     text.text = "";
     text.isPlaceholder = false;
   }
+  updateControls();
+  draw();
+  syncTextEditor();
   requestAnimationFrame(() => {
-    textContent.focus();
-    textContent.select();
+    textEditor.focus();
+    textEditor.select();
   });
 }
 
 function deleteText(id) {
   const index = state.texts.findIndex((item) => item.id === id);
   if (index === -1) return;
+  if (state.editingTextId === id) hideTextEditor();
   state.texts.splice(index, 1);
   if (state.selectedTextId === id) {
     state.selectedTextId = state.texts[Math.min(index, state.texts.length - 1)]?.id || null;
@@ -568,7 +669,10 @@ function draw(includeSelection = true) {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   state.slots.forEach(drawSlot);
   drawSlotDividers();
-  state.texts.forEach(drawTextItem);
+  state.texts.forEach((item) => {
+    if (includeSelection && item.id === state.editingTextId) return;
+    drawTextItem(item);
+  });
   drawLogo();
   if (includeSelection) {
     drawSafeZoneOverlay();
@@ -1002,10 +1106,12 @@ function snapTextPosition(text, x, y) {
 function pointerDown(event) {
   const point = canvasPoint(event);
   state.snapGuides = [];
+  hideTextEditor();
   const text = hitText(point);
   if (text) {
-    activateTextForEditing(text.id);
-    drag = { type: "text", id: text.id, start: point, x: text.x, y: text.y };
+    state.selectedTextId = text.id;
+    state.selectedSlotId = null;
+    drag = { type: "text", id: text.id, start: point, x: text.x, y: text.y, moved: false };
     updateControls();
     draw();
     return;
@@ -1041,6 +1147,7 @@ function pointerMove(event) {
   if (drag.type === "text") {
     const text = state.texts.find((item) => item.id === drag.id);
     if (text) {
+      drag.moved = drag.moved || Math.hypot(dx, dy) > Math.max(8, state.format.width * 0.006);
       const rawX = clamp(drag.x + dx, -text.w * 0.8, state.format.width - text.w * 0.2);
       const rawY = clamp(drag.y + dy, -text.h * 0.4, state.format.height - text.h * 0.2);
       const snapped = snapTextPosition(text, rawX, rawY);
@@ -1246,10 +1353,11 @@ logoSize.addEventListener("input", () => {
 });
 
 document.querySelector("#addTextBtn").addEventListener("click", () => {
-  addText();
-  fitTextBoxesToFormat();
+  hideTextEditor();
+  addTextNearCurrent();
   updateControls();
   draw();
+  activateTextForEditing(state.selectedTextId);
 });
 textList.addEventListener("click", (event) => {
   const deleteButton = event.target.closest("[data-delete-text]");
@@ -1266,7 +1374,11 @@ textList.addEventListener("click", (event) => {
   updateControls();
   draw();
 });
-textContent.addEventListener("input", () => updateSelectedText({ text: textContent.value }));
+textEditor.addEventListener("input", () => updateSelectedText({ text: textEditor.value }));
+textEditor.addEventListener("blur", () => {
+  if (!drag) hideTextEditor();
+  draw();
+});
 fontSize.addEventListener("input", () => updateSelectedText({ fontSize: Number(fontSize.value) }));
 textWidth.addEventListener("input", () => updateSelectedText({ w: Number(textWidth.value) }));
 autoTextWidth.addEventListener("change", () => updateSelectedText({ autoWidth: autoTextWidth.checked }));
@@ -1286,7 +1398,11 @@ canvas.addEventListener("pointermove", pointerMove);
 window.addEventListener("pointerup", () => {
   if (drag?.type === "text") {
     state.snapGuides = [];
-    draw();
+    if (drag.moved) {
+      draw();
+    } else {
+      activateTextForEditing(drag.id);
+    }
   }
   drag = null;
 });
@@ -1304,6 +1420,7 @@ document.querySelector("#previewBtn").addEventListener("click", async () => {
 document.querySelector("#resetBtn").addEventListener("click", resetPost);
 
 window.addEventListener("keydown", (event) => {
+  if (event.target === textEditor) return;
   if (event.key === "Delete" && state.selectedTextId) {
     document.querySelector("#deleteTextBtn").click();
   }

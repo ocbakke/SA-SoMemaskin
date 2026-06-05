@@ -59,6 +59,7 @@
           </div>
           <div class="canvas-frame">
             <canvas id="postCanvas" width="1080" height="1080"></canvas>
+            <textarea id="canvasTextEditor" class="canvas-text-editor" aria-label="Rediger tekstboks"></textarea>
           </div>
         </section>
 
@@ -102,10 +103,9 @@
               <button class="small-btn" id="addTextBtn" type="button">Legg til</button>
             </div>
             <div class="text-list" id="textList"></div>
-            <label class="field-label">Tekst <textarea id="textContent" rows="3"></textarea></label>
             <div class="control-row two">
               <label class="field-label value-label">Størrelse <span id="fontSizeValue">76 px</span><input id="fontSize" type="range" min="18" max="180" step="1"></label>
-              <label class="field-label">Bredde <input id="textWidth" type="number" min="180" max="1800"></label>
+              <label class="field-label value-label">Bredde <span id="textWidthValue">907 px</span><input id="textWidth" type="range" min="180" max="1800" step="1"></label>
             </div>
             <div class="toggle-row">
               <span>Autobredde</span>
