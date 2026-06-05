@@ -27,6 +27,7 @@ const PALETTE = ["#e40200", "#0064dc", "#ef8a17", "#111827", "#ffffff", "#00584f
 
 const canvas = document.querySelector("#postCanvas");
 const ctx = canvas.getContext("2d");
+const canvasFrame = document.querySelector(".canvas-frame");
 const fileInput = document.querySelector("#fileInput");
 const formatGrid = document.querySelector("#formatGrid");
 const templateGrid = document.querySelector("#templateGrid");
@@ -262,6 +263,7 @@ function updateControls() {
   renderFormatButtons();
   renderTemplateButtons();
   renderTextList();
+  resizeCanvasPreview();
   formatStatus.textContent = `${state.format.name} ${state.format.detail} · ${state.format.width}x${state.format.height}`;
   exportBtn.textContent = `Eksporter (${state.format.width}x${state.format.height})`;
   customSize.classList.toggle("show", state.format.id === "custom");
@@ -303,6 +305,17 @@ function updateControls() {
 
   renderSwatches("#boxSwatches", boxColor, "bg");
   renderSwatches("#textSwatches", textColor, "color");
+}
+
+function resizeCanvasPreview() {
+  const styles = window.getComputedStyle(canvasFrame);
+  const paddingX = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+  const paddingY = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
+  const availableWidth = Math.max(160, canvasFrame.clientWidth - paddingX);
+  const availableHeight = Math.max(160, canvasFrame.clientHeight - paddingY);
+  const scale = Math.min(availableWidth / canvas.width, availableHeight / canvas.height, 1);
+  canvas.style.width = `${Math.floor(canvas.width * scale)}px`;
+  canvas.style.height = `${Math.floor(canvas.height * scale)}px`;
 }
 
 function updateSelectedSlot(changes) {
@@ -811,6 +824,11 @@ canvas.addEventListener("pointermove", pointerMove);
 window.addEventListener("pointerup", () => {
   drag = null;
 });
+window.addEventListener("resize", resizeCanvasPreview);
+
+if ("ResizeObserver" in window) {
+  new ResizeObserver(resizeCanvasPreview).observe(canvasFrame);
+}
 
 exportBtn.addEventListener("click", () => exportCanvas(true));
 document.querySelector("#previewBtn").addEventListener("click", async () => {
