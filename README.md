@@ -1,6 +1,6 @@
 # SA-SoMemaskin
 
-SA-SoMemaskin er et lokalt og statisk bildeverktøy for Sarpsborg Arbeiderblad. Det lager bildeposter til sosiale medier med opplasting av bilde, ferdige formater, SA-logoer, tekstbokser i en SA.no-lignende overskriftsfont og PNG-eksport.
+SA-SoMemaskin er et lokalt og statisk bildeverktøy for Sarpsborg Arbeiderblad. Det lager bildeposter til sosiale medier med opplasting av bilde, ferdige formater, SA-logoer, tekstbokser og PNG-eksport.
 
 ## Bruk
 

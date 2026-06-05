@@ -167,6 +167,7 @@ button { cursor: pointer; }
 .small-btn, .wide-btn { min-height: 38px; padding: 9px 12px; font-size: 12px; }
 .wide-btn { flex: 1; color: #fff; background: var(--sa-blue); border-color: var(--sa-blue); text-transform: uppercase; }
 .wide-btn:hover { background: #004fb0; }
+.reset-btn { width: 100%; margin-top: 14px; }
 .small-btn.danger { margin-top: 12px; color: #b42318; }
 .icon-btn { width: 38px; height: 38px; font-size: 20px; }
 .canvas-frame {
@@ -193,6 +194,21 @@ canvas {
 }
 .range-label { margin-top: 14px; }
 input[type="range"] { accent-color: var(--sa-blue); }
+.field-label input[type="range"] {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.value-label {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+.value-label input { grid-column: 1 / -1; }
+.value-label span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
 .segmented { display: grid; gap: 4px; padding: 4px; background: var(--soft); border-radius: 8px; }
 .segmented.four { grid-template-columns: repeat(4, 1fr); }
 .segmented.three { grid-template-columns: repeat(3, 1fr); margin-top: 14px; }
@@ -285,6 +301,16 @@ input[type="range"] { accent-color: var(--sa-blue); }
   stroke-linejoin: round;
 }
 .field-label { margin-top: 12px; }
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 850;
+}
 .swatch-block {
   display: grid;
   gap: 8px;

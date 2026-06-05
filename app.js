@@ -24,7 +24,6 @@ const LOGOS = {
 };
 
 const PALETTE = ["#e40200", "#0064dc", "#ef8a17", "#111827", "#ffffff", "#f7f8fb"];
-const TEXT_FONT_FAMILY = '"Barlow Condensed", "Arial Narrow", Impact, "Arial Black", Arial, sans-serif';
 const SNAP_THRESHOLD = 24;
 const SNAP_GAP = 24;
 const SAFE_ZONE_PRESETS = {
@@ -48,12 +47,17 @@ const exportBtn = document.querySelector("#exportBtn");
 const imageZoom = document.querySelector("#imageZoom");
 const imageBrightness = document.querySelector("#imageBrightness");
 const imageVignette = document.querySelector("#imageVignette");
+const imageBottomShadow = document.querySelector("#imageBottomShadow");
 const textList = document.querySelector("#textList");
 const textContent = document.querySelector("#textContent");
 const fontSize = document.querySelector("#fontSize");
+const fontSizeValue = document.querySelector("#fontSizeValue");
 const textWidth = document.querySelector("#textWidth");
 const boxColor = document.querySelector("#boxColor");
 const textColor = document.querySelector("#textColor");
+const autoTextWidth = document.querySelector("#autoTextWidth");
+const boxTransparency = document.querySelector("#boxTransparency");
+const boxTransparencyValue = document.querySelector("#boxTransparencyValue");
 const logoVisible = document.querySelector("#logoVisible");
 const logoSize = document.querySelector("#logoSize");
 
@@ -99,7 +103,8 @@ function createSlot(rect, previous) {
     offsetX: previous?.offsetX || 0,
     offsetY: previous?.offsetY || 0,
     brightness: previous?.brightness || 1,
-    vignette: previous?.vignette || 0
+    vignette: previous?.vignette || 0,
+    bottomShadow: previous?.bottomShadow || 0
   };
 }
 
@@ -187,6 +192,8 @@ function addText(overrides = {}) {
     align: "center",
     padding: 26,
     h: 100,
+    autoWidth: false,
+    boxOpacity: 1,
     ...overrides
   };
   state.texts.push(item);
@@ -303,6 +310,7 @@ function updateControls() {
     imageZoom.value = slot.zoom;
     imageBrightness.value = slot.brightness;
     imageVignette.value = slot.vignette;
+    imageBottomShadow.value = slot.bottomShadow || 0;
   }
 
   logoVisible.checked = state.logo.visible;
@@ -313,15 +321,21 @@ function updateControls() {
 
   const text = selectedText();
   const disabled = !text;
-  [textContent, fontSize, textWidth, boxColor, textColor].forEach((input) => {
+  [textContent, fontSize, boxColor, textColor, autoTextWidth, boxTransparency].forEach((input) => {
     input.disabled = disabled;
   });
+  textWidth.disabled = disabled || Boolean(text?.autoWidth);
   document.querySelector("#deleteTextBtn").disabled = disabled;
 
   if (text) {
     textContent.value = text.text;
     fontSize.value = text.fontSize;
+    fontSizeValue.textContent = `${text.fontSize} px`;
     textWidth.value = text.w;
+    autoTextWidth.checked = Boolean(text.autoWidth);
+    const transparency = Math.round((1 - (text.boxOpacity ?? 1)) * 100);
+    boxTransparency.value = transparency;
+    boxTransparencyValue.textContent = `${transparency} %`;
     boxColor.value = text.bg;
     textColor.value = text.color;
     document.querySelectorAll("#textAlign button").forEach((button) => {
@@ -329,6 +343,10 @@ function updateControls() {
     });
   } else {
     textContent.value = "";
+    autoTextWidth.checked = false;
+    boxTransparency.value = 0;
+    fontSizeValue.textContent = "-";
+    boxTransparencyValue.textContent = "-";
   }
 
   renderSwatches("#boxSwatches", boxColor, "bg");
@@ -357,12 +375,32 @@ function updateSelectedSlot(changes) {
 function updateSelectedText(changes) {
   const text = selectedText();
   if (!text) return;
+  const center = text.x + text.w / 2;
   Object.assign(text, changes);
   if (Object.prototype.hasOwnProperty.call(changes, "text")) {
     text.isPlaceholder = false;
   }
+  if (text.autoWidth && (Object.prototype.hasOwnProperty.call(changes, "text") || Object.prototype.hasOwnProperty.call(changes, "fontSize") || Object.prototype.hasOwnProperty.call(changes, "autoWidth"))) {
+    fitAutoTextWidth(text, center);
+  }
   updateControls();
   draw();
+}
+
+function fitAutoTextWidth(item, center = item.x + item.w / 2) {
+  const safeRect = activeSafeZoneRect() || { x: 0, y: 0, w: state.format.width, h: state.format.height };
+  const maxWidth = Math.round(Math.min(state.format.width * 0.92, safeRect.w * 0.96));
+  const minWidth = Math.round(Math.min(maxWidth, Math.max(180, item.fontSize * 3.2)));
+  const label = String(item.text || "").replace(/\s+/g, " ").trim() || "Ny tekst";
+
+  ctx.save();
+  ctx.font = textFont(item);
+  const width = Math.ceil(ctx.measureText(label).width + item.padding * 2);
+  ctx.restore();
+
+  item.w = Math.round(clamp(width, minWidth, maxWidth));
+  item.x = Math.round(clamp(center - item.w / 2, safeRect.x, safeRect.x + safeRect.w - item.w));
+  item.h = measureTextItem(item).height;
 }
 
 function activateTextForEditing(id) {
@@ -414,9 +452,13 @@ function fitTextBoxesToFormat() {
   const baseFont = clamp(state.format.width * 0.07, 30, isVerticalPlacement() ? 86 : 112);
 
   state.texts.forEach((item, index) => {
-    item.w = width;
     item.fontSize = Math.round(clamp(baseFont * (index === 0 ? 1 : 0.78), 24, 120));
     item.padding = Math.round(clamp(item.fontSize * 0.36, 14, 34));
+    if (item.autoWidth) {
+      fitAutoTextWidth(item);
+    } else {
+      item.w = width;
+    }
     item.h = measureTextItem(item).height;
   });
 
@@ -511,6 +553,7 @@ function draw(includeSelection = true) {
   ctx.fillStyle = state.template === "inset" ? "#f4f6f9" : "#edf1f5";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   state.slots.forEach(drawSlot);
+  drawSlotDividers();
   state.texts.forEach(drawTextItem);
   drawLogo();
   if (includeSelection) {
@@ -581,6 +624,16 @@ function drawSlot(slot) {
       ctx.fillStyle = gradient;
       ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
     }
+
+    if (slot.bottomShadow > 0) {
+      const startY = rect.y + rect.h * (0.92 - slot.bottomShadow * 0.48);
+      const gradient = ctx.createLinearGradient(0, startY, 0, rect.y + rect.h);
+      gradient.addColorStop(0, "rgba(0,0,0,0)");
+      gradient.addColorStop(0.62, `rgba(0,0,0,${slot.bottomShadow * 0.42})`);
+      gradient.addColorStop(1, `rgba(0,0,0,${slot.bottomShadow})`);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(rect.x, startY, rect.w, rect.y + rect.h - startY);
+    }
   } else {
     ctx.fillStyle = "#e7edf3";
     ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
@@ -588,6 +641,52 @@ function drawSlot(slot) {
     ctx.lineWidth = Math.max(2, state.format.width * 0.002);
     ctx.strokeRect(rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
     drawPlaceholder(rect);
+  }
+
+  ctx.restore();
+}
+
+function drawSlotDividers() {
+  if (state.slots.length < 2) return;
+  const rects = state.slots.map(absoluteRect);
+  const lineWidth = Math.round(clamp(Math.min(state.format.width, state.format.height) * 0.008, 5, 12));
+
+  ctx.save();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = lineWidth;
+  ctx.lineCap = "butt";
+
+  for (let i = 0; i < rects.length; i += 1) {
+    for (let j = i + 1; j < rects.length; j += 1) {
+      const a = rects[i];
+      const b = rects[j];
+      const verticalBoundary = Math.abs(a.x + a.w - b.x) <= 1 || Math.abs(b.x + b.w - a.x) <= 1;
+      const horizontalBoundary = Math.abs(a.y + a.h - b.y) <= 1 || Math.abs(b.y + b.h - a.y) <= 1;
+
+      if (verticalBoundary) {
+        const x = Math.abs(a.x + a.w - b.x) <= 1 ? a.x + a.w : b.x + b.w;
+        const y1 = Math.max(a.y, b.y);
+        const y2 = Math.min(a.y + a.h, b.y + b.h);
+        if (y2 > y1) {
+          ctx.beginPath();
+          ctx.moveTo(x, y1);
+          ctx.lineTo(x, y2);
+          ctx.stroke();
+        }
+      }
+
+      if (horizontalBoundary) {
+        const y = Math.abs(a.y + a.h - b.y) <= 1 ? a.y + a.h : b.y + b.h;
+        const x1 = Math.max(a.x, b.x);
+        const x2 = Math.min(a.x + a.w, b.x + b.w);
+        if (x2 > x1) {
+          ctx.beginPath();
+          ctx.moveTo(x1, y);
+          ctx.lineTo(x2, y);
+          ctx.stroke();
+        }
+      }
+    }
   }
 
   ctx.restore();
@@ -656,14 +755,14 @@ function wrapText(context, text, maxWidth) {
 }
 
 function textFont(item) {
-  return `900 ${item.fontSize}px ${TEXT_FONT_FAMILY}`;
+  return `900 ${item.fontSize}px "Arial Black", Impact, Arial, sans-serif`;
 }
 
 function measureTextItem(item) {
   ctx.save();
   ctx.font = textFont(item);
   const lines = wrapText(ctx, item.text, item.w - item.padding * 2);
-  const lineHeight = item.fontSize;
+  const lineHeight = item.fontSize * 1.06;
   const height = Math.ceil(lines.length * lineHeight + item.padding * 2);
   ctx.restore();
   return { lines, lineHeight, height };
@@ -677,7 +776,9 @@ function drawTextItem(item) {
   ctx.save();
   roundRect(ctx, item.x, item.y, item.w, item.h, radius);
   ctx.fillStyle = item.bg;
+  ctx.globalAlpha = item.boxOpacity ?? 1;
   ctx.fill();
+  ctx.globalAlpha = 1;
   ctx.fillStyle = item.color;
   ctx.font = textFont(item);
   ctx.textAlign = item.align;
@@ -966,6 +1067,9 @@ function handleFile(file) {
       slot.offsetX = 0;
       slot.offsetY = 0;
       slot.zoom = 1;
+      slot.brightness = 1;
+      slot.vignette = 0;
+      slot.bottomShadow = 0;
       updateControls();
       draw();
     };
@@ -1034,12 +1138,6 @@ function resetPost() {
   fitDesignToFormat();
 }
 
-function redrawWhenFontsLoad() {
-  if (!document.fonts) return;
-  document.fonts.load('900 96px "Barlow Condensed"').then(draw).catch(() => {});
-  document.fonts.ready.then(draw);
-}
-
 formatGrid.addEventListener("click", (event) => {
   const button = event.target.closest("[data-format]");
   if (!button) return;
@@ -1090,6 +1188,13 @@ dropCard.addEventListener("drop", (event) => handleFile(event.dataTransfer.files
 imageZoom.addEventListener("input", () => updateSelectedSlot({ zoom: Number(imageZoom.value) }));
 imageBrightness.addEventListener("input", () => updateSelectedSlot({ brightness: Number(imageBrightness.value) }));
 imageVignette.addEventListener("input", () => updateSelectedSlot({ vignette: Number(imageVignette.value) }));
+imageBottomShadow.addEventListener("input", () => updateSelectedSlot({ bottomShadow: Number(imageBottomShadow.value) }));
+document.querySelector("#resetImageAdjustmentsBtn").addEventListener("click", () => updateSelectedSlot({
+  zoom: 1,
+  brightness: 1,
+  vignette: 0,
+  bottomShadow: 0
+}));
 document.querySelector("#zoomOutBtn").addEventListener("click", () => {
   const slot = selectedSlot();
   if (slot) updateSelectedSlot({ zoom: clamp(slot.zoom - 0.08, 1, 3) });
@@ -1145,6 +1250,8 @@ textList.addEventListener("click", (event) => {
 textContent.addEventListener("input", () => updateSelectedText({ text: textContent.value }));
 fontSize.addEventListener("input", () => updateSelectedText({ fontSize: Number(fontSize.value) }));
 textWidth.addEventListener("input", () => updateSelectedText({ w: Number(textWidth.value) }));
+autoTextWidth.addEventListener("change", () => updateSelectedText({ autoWidth: autoTextWidth.checked }));
+boxTransparency.addEventListener("input", () => updateSelectedText({ boxOpacity: 1 - Number(boxTransparency.value) / 100 }));
 boxColor.addEventListener("input", () => updateSelectedText({ bg: boxColor.value }));
 textColor.addEventListener("input", () => updateSelectedText({ color: textColor.value }));
 document.querySelector("#textAlign").addEventListener("click", (event) => {
@@ -1185,4 +1292,3 @@ window.addEventListener("keydown", (event) => {
 
 loadLogos();
 applyTemplate("headline", true);
-redrawWhenFontsLoad();

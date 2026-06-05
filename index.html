@@ -4,9 +4,6 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>SA-SoMemaskin</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -75,6 +72,8 @@
             <label class="range-label">Zoom <input id="imageZoom" type="range" min="1" max="3" step="0.01" value="1"></label>
             <label class="range-label">Lys <input id="imageBrightness" type="range" min="0.65" max="1.35" step="0.01" value="1"></label>
             <label class="range-label">Mørk vignett <input id="imageVignette" type="range" min="0" max="0.65" step="0.01" value="0"></label>
+            <label class="range-label">Skygge fra bunn <input id="imageBottomShadow" type="range" min="0" max="0.85" step="0.01" value="0"></label>
+            <button class="small-btn reset-btn" id="resetImageAdjustmentsBtn" type="button">Nullstill bildejustering</button>
           </section>
 
           <section>
@@ -105,9 +104,14 @@
             <div class="text-list" id="textList"></div>
             <label class="field-label">Tekst <textarea id="textContent" rows="3"></textarea></label>
             <div class="control-row two">
-              <label class="field-label">Størrelse <input id="fontSize" type="number" min="18" max="180"></label>
+              <label class="field-label value-label">Størrelse <span id="fontSizeValue">76 px</span><input id="fontSize" type="range" min="18" max="180" step="1"></label>
               <label class="field-label">Bredde <input id="textWidth" type="number" min="180" max="1800"></label>
             </div>
+            <div class="toggle-row">
+              <span>Autobredde</span>
+              <label class="switch"><input id="autoTextWidth" type="checkbox"><span></span></label>
+            </div>
+            <label class="range-label value-label">Bokstransparens <span id="boxTransparencyValue">0 %</span><input id="boxTransparency" type="range" min="0" max="65" step="1" value="0"></label>
             <div class="swatch-block">
               <span>Boksfarge</span>
               <div class="color-control">
