@@ -380,11 +380,25 @@ function updateSelectedText(changes) {
   if (Object.prototype.hasOwnProperty.call(changes, "text")) {
     text.isPlaceholder = false;
   }
-  if (text.autoWidth && (Object.prototype.hasOwnProperty.call(changes, "text") || Object.prototype.hasOwnProperty.call(changes, "fontSize") || Object.prototype.hasOwnProperty.call(changes, "autoWidth"))) {
+  if (Object.prototype.hasOwnProperty.call(changes, "autoWidth") && !text.autoWidth) {
+    resetTextWidthToDefault(text, center);
+  } else if (text.autoWidth && (Object.prototype.hasOwnProperty.call(changes, "text") || Object.prototype.hasOwnProperty.call(changes, "fontSize") || Object.prototype.hasOwnProperty.call(changes, "autoWidth"))) {
     fitAutoTextWidth(text, center);
   }
   updateControls();
   draw();
+}
+
+function defaultTextBoxWidth() {
+  const safeRect = activeSafeZoneRect() || { w: state.format.width };
+  return Math.round(Math.min(state.format.width * 0.86, safeRect.w * 0.92));
+}
+
+function resetTextWidthToDefault(item, center = item.x + item.w / 2) {
+  const safeRect = activeSafeZoneRect() || { x: 0, y: 0, w: state.format.width };
+  item.w = defaultTextBoxWidth();
+  item.x = Math.round(clamp(center - item.w / 2, safeRect.x, safeRect.x + safeRect.w - item.w));
+  item.h = measureTextItem(item).height;
 }
 
 function fitAutoTextWidth(item, center = item.x + item.w / 2) {
@@ -448,7 +462,7 @@ function fitTextBoxesToFormat() {
   if (state.texts.length === 0) return;
   const safeRect = activeSafeZoneRect() || { x: 0, y: 0, w: state.format.width, h: state.format.height };
   const gap = Math.round(Math.max(18, Math.min(state.format.width, state.format.height) * 0.024));
-  const width = Math.round(Math.min(state.format.width * 0.86, safeRect.w * 0.92));
+  const width = defaultTextBoxWidth();
   const baseFont = clamp(state.format.width * 0.07, 30, isVerticalPlacement() ? 86 : 112);
 
   state.texts.forEach((item, index) => {
