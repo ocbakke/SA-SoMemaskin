@@ -23,7 +23,8 @@ const LOGOS = {
   fullColor: "assets/sa-no-farget.svg"
 };
 
-const PALETTE = ["#e40200", "#0064dc", "#ef8a17", "#111827", "#ffffff", "#00584f", "#f7f8fb"];
+const PALETTE = ["#e40200", "#0064dc", "#ef8a17", "#111827", "#ffffff", "#f7f8fb"];
+const TEXT_FONT_FAMILY = '"Barlow Condensed", "Arial Narrow", Impact, "Arial Black", Arial, sans-serif';
 const SNAP_THRESHOLD = 24;
 const SNAP_GAP = 24;
 const SAFE_ZONE_PRESETS = {
@@ -655,14 +656,14 @@ function wrapText(context, text, maxWidth) {
 }
 
 function textFont(item) {
-  return `900 ${item.fontSize}px "Arial Black", Impact, Arial, sans-serif`;
+  return `900 ${item.fontSize}px ${TEXT_FONT_FAMILY}`;
 }
 
 function measureTextItem(item) {
   ctx.save();
   ctx.font = textFont(item);
   const lines = wrapText(ctx, item.text, item.w - item.padding * 2);
-  const lineHeight = item.fontSize * 1.06;
+  const lineHeight = item.fontSize;
   const height = Math.ceil(lines.length * lineHeight + item.padding * 2);
   ctx.restore();
   return { lines, lineHeight, height };
@@ -1033,6 +1034,12 @@ function resetPost() {
   fitDesignToFormat();
 }
 
+function redrawWhenFontsLoad() {
+  if (!document.fonts) return;
+  document.fonts.load('900 96px "Barlow Condensed"').then(draw).catch(() => {});
+  document.fonts.ready.then(draw);
+}
+
 formatGrid.addEventListener("click", (event) => {
   const button = event.target.closest("[data-format]");
   if (!button) return;
@@ -1178,3 +1185,4 @@ window.addEventListener("keydown", (event) => {
 
 loadLogos();
 applyTemplate("headline", true);
+redrawWhenFontsLoad();

@@ -4,6 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>SA-SoMemaskin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -107,13 +110,23 @@
             </div>
             <div class="swatch-block">
               <span>Boksfarge</span>
-              <div class="swatches" id="boxSwatches"></div>
-              <input id="boxColor" type="color" value="#e40200">
+              <div class="color-control">
+                <div class="swatches" id="boxSwatches"></div>
+                <label class="spectrum-picker" title="Velg egen boksfarge">
+                  <input id="boxColor" type="color" value="#e40200">
+                  <span>Egen</span>
+                </label>
+              </div>
             </div>
             <div class="swatch-block">
               <span>Tekstfarge</span>
-              <div class="swatches" id="textSwatches"></div>
-              <input id="textColor" type="color" value="#ffffff">
+              <div class="color-control">
+                <div class="swatches" id="textSwatches"></div>
+                <label class="spectrum-picker" title="Velg egen tekstfarge">
+                  <input id="textColor" type="color" value="#ffffff">
+                  <span>Egen</span>
+                </label>
+              </div>
             </div>
             <div class="segmented three" id="textAlign">
               <button data-align="left" type="button">Venstre</button>

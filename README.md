@@ -1,6 +1,6 @@
 # SA-SoMemaskin
 
-SA-SoMemaskin er et lokalt og statisk bildeverktøy for Sarpsborg Arbeiderblad. Det lager bildeposter til sosiale medier med opplasting av bilde, ferdige formater, SA-logoer, tekstbokser og PNG-eksport.
+SA-SoMemaskin er et lokalt og statisk bildeverktøy for Sarpsborg Arbeiderblad. Det lager bildeposter til sosiale medier med opplasting av bilde, ferdige formater, SA-logoer, tekstbokser i en SA.no-lignende overskriftsfont og PNG-eksport.
 
 ## Bruk
 
@@ -26,3 +26,5 @@ Editoren velger trygg sone automatisk ut fra formatet. Guidene vises bare i edit
 - Rød: `#e40200`
 - Blå: `#0064dc`
 - Oransje: `#ef8a17`
+
+Verktøyet har også en egen fargevelger for frie boks- og tekstfarger.

@@ -287,18 +287,39 @@ input[type="range"] { accent-color: var(--sa-blue); }
 .field-label { margin-top: 12px; }
 .swatch-block {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px 10px;
+  gap: 8px;
   align-items: center;
   margin-top: 13px;
   color: #344054;
   font-size: 12px;
   font-weight: 850;
 }
-.swatches { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+.color-control { display: flex; align-items: center; gap: 8px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
 .swatch { width: 32px; height: 32px; border: 2px solid #fff; border-radius: 8px; box-shadow: 0 0 0 1px var(--line); }
 .swatch.active { box-shadow: 0 0 0 2px var(--ink); }
-input[type="color"] { width: 40px; height: 34px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.spectrum-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 3px 8px 3px 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: #344054;
+  font-size: 11px;
+  font-weight: 900;
+}
+.spectrum-picker input[type="color"] {
+  width: 32px;
+  height: 28px;
+  padding: 1px;
+  border: 0;
+  border-radius: 6px;
+  background: conic-gradient(#e40200, #ef8a17, #ffe955, #13a76f, #0064dc, #7c3aed, #e40200);
+}
 @media (max-width: 1120px) {
   body { overflow: auto; }
   .app-shell { height: auto; min-height: 100vh; }
