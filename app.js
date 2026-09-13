@@ -409,6 +409,7 @@ function updateSelectedSlot(changes) {
   const slot = selectedSlot();
   if (!slot) return;
   Object.assign(slot, changes);
+  constrainSlotImage(slot);
   updateControls();
   draw();
 }
@@ -615,6 +616,39 @@ function absoluteRect(slot) {
   };
 }
 
+function imageSlotLayout(slot) {
+  const rect = absoluteRect(slot);
+  const image = slot.image;
+  if (!image) return { rect, drawW: 0, drawH: 0 };
+  const baseScale = slot.fit === "contain"
+    ? Math.min(rect.w / image.naturalWidth, rect.h / image.naturalHeight)
+    : Math.max(rect.w / image.naturalWidth, rect.h / image.naturalHeight);
+  const scale = baseScale * slot.zoom;
+  return {
+    rect,
+    drawW: image.naturalWidth * scale,
+    drawH: image.naturalHeight * scale
+  };
+}
+
+function clampedImageOffset(slot, offsetX = slot.offsetX, offsetY = slot.offsetY) {
+  if (!slot.image) return { x: offsetX, y: offsetY };
+  const { rect, drawW, drawH } = imageSlotLayout(slot);
+  const limitX = Math.abs(drawW - rect.w) / 2;
+  const limitY = Math.abs(drawH - rect.h) / 2;
+  return {
+    x: Math.round(clamp(offsetX, -limitX, limitX)),
+    y: Math.round(clamp(offsetY, -limitY, limitY))
+  };
+}
+
+function constrainSlotImage(slot) {
+  if (!slot?.image) return;
+  const offset = clampedImageOffset(slot);
+  slot.offsetX = offset.x;
+  slot.offsetY = offset.y;
+}
+
 function isVerticalPlacement() {
   return state.format.height / state.format.width >= 1.55;
 }
@@ -736,16 +770,12 @@ function drawSlot(slot) {
   ctx.clip();
 
   if (slot.image) {
+    constrainSlotImage(slot);
     ctx.fillStyle = postBackgroundColor();
     ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
 
     const image = slot.image;
-    const baseScale = slot.fit === "contain"
-      ? Math.min(rect.w / image.naturalWidth, rect.h / image.naturalHeight)
-      : Math.max(rect.w / image.naturalWidth, rect.h / image.naturalHeight);
-    const scale = baseScale * slot.zoom;
-    const drawW = image.naturalWidth * scale;
-    const drawH = image.naturalHeight * scale;
+    const { drawW, drawH } = imageSlotLayout(slot);
     const x = rect.x + (rect.w - drawW) / 2 + slot.offsetX;
     const y = rect.y + (rect.h - drawH) / 2 + slot.offsetY;
 
@@ -1186,8 +1216,9 @@ function pointerMove(event) {
     state.snapGuides = [];
     const slot = state.slots.find((item) => item.id === drag.id);
     if (slot) {
-      slot.offsetX = Math.round(drag.x + dx);
-      slot.offsetY = Math.round(drag.y + dy);
+      const offset = clampedImageOffset(slot, drag.x + dx, drag.y + dy);
+      slot.offsetX = offset.x;
+      slot.offsetY = offset.y;
     }
   }
 
